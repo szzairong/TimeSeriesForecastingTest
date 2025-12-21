@@ -46,27 +46,54 @@
 단순한 1계층 모델은 복잡한 금융 시장의 비선형성을 담아내기에 역부족이었습니다. 따라서 2개의 층(Layers)을 쌓아 1층에서는 단순 패턴을, 2층에서는 복잡한 추상 패턴을 학습하도록 설계했습니다. 또한 은닉 노드(Hidden Units)를 128개로 설정하여 정보 수용량을 늘리고, 0.3의 드롭아웃(Dropout)을 적용하여 과적합을 방지했습니다.
 
 ```python
+import torch.nn as nn
+import torch.optim as optim
 class MyTradingModel(nn.Module):
+    """
+    GRU 기반의 트레이딩 모델
+    입력: (batch, sequence_length, features)
+    출력: (batch, 1) - 상승 확률 (0~1)
+    """
     def __init__(self, input_size, hidden_size=128, num_layers=2, dropout=0.3):
         super(MyTradingModel, self).__init__()
-        # LSTM 대신 GRU 사용 (구조 개선)
-        self.gru = nn.GRU(input_size, hidden_size, num_layers, batch_first=True, dropout=dropout)
-        # 분류기 성능 강화를 위한 FC 레이어 확장
+        
+        # 1. GRU 레이어 (LSTM보다 학습 속도가 빠름)
+        self.gru = nn.GRU(
+            input_size=input_size, 
+            hidden_size=hidden_size, 
+            num_layers=num_layers, 
+            batch_first=True, 
+            dropout=dropout
+        )
+        
+        # 2. 분류기 (Classifier)
         self.fc = nn.Sequential(
             nn.Linear(hidden_size, 32),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(32, 1),
-            nn.Sigmoid()
+            nn.Sigmoid()  # 0~1 사이 확률 출력
         )
         
     def forward(self, x):
-        # x: (batch, seq_len, features)
+        # x shape: (batch_size, seq_len, input_size)
         out, _ = self.gru(x)
-        # 마지막 시점(=가장 최근 데이터)의 출력만 사용
-        out = out[:, -1, :] 
-        out = self.fc(out)
-        return out
+        
+        # 마지막 시점(Last time step)의 Hidden State만 사용
+        # out shape: (batch_size, seq_len, hidden_size)
+        last_step_out = out[:, -1, :] 
+        
+        # 분류기 통과
+        prediction = self.fc(last_step_out)
+        return prediction
+
+# 모델 생성 (GPU 사용)
+my_model = MyTradingModel(
+    input_size=X_train_seq.shape[2],
+    hidden_size=128, 
+    num_layers=2,
+    dropout=0.3
+).to(device)
 ```
 
 ---
