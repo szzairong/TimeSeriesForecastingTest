@@ -107,21 +107,22 @@ my_model = MyTradingModel(
 첫째, 모델 예측 확률이 50% 초반대인 구간은 노이즈일 가능성이 높아 진입하지 않고, 확률이 65% 이상인 확실한 구간만 선별합니다. 둘째, AI가 상승을 예측했더라도 현재 RSI 지표가 70 이상(과매수)이라면 고점 매수 위험이 있어 매수를 포기합니다. 반대로 RSI가 30 이하(과매도)인 구간에서는 기술적 반등 확률이 높으므로 적극적으로 진입합니다.
 
 ```python
-def get_position(probability, rsi_value):
-    # 1. 모델의 확신도 체크 (Threshold 0.65)
-    if probability > 0.65:
-        # 2. RSI 과매수 여부 체크 (Filter)
-        if rsi_value >= 70:
-            return 0.0 # 매수 보류 (관망)
-        else:
-            return 1.0 # 적극 매수 (Full Invest)
-            
-    # 예외: 과매도 구간에서는 반등 기대
-    elif rsi_value <= 30:
-        return 0.5 # 분할 매수 시도
-        
-    else:
-        return 0.0 # 기본적으로 현금 보유
+# 1. 기본 비중 (모델 확률 기반)
+if prob > threshold:
+    base_ratio = min(prob * 1.2, 1.0) # 확률의 1.2배 투자 (최대 100%)
+else:
+    base_ratio = 0
+    
+# 2. RSI 보정
+if rsi > 70: # 과매수 -> 비중 축소
+    final_ratio = base_ratio * 0.5
+elif rsi < 30: # 과매도 -> 비중 확대
+    final_ratio = min(base_ratio * 1.5, 1.0)
+    # 모델 확신이 부족해도 RSI가 낮으면 소액 진입
+    if prob > 0.4 and base_ratio == 0:
+        final_ratio = 0.3
+else:
+    final_ratio = base_ratio
 ```
 
 ---
