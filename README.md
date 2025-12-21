@@ -47,24 +47,26 @@
 
 ```python
 class MyTradingModel(nn.Module):
-    def __init__(self, input_size):
+    def __init__(self, input_size, hidden_size=128, num_layers=2, dropout=0.3):
         super(MyTradingModel, self).__init__()
-        # GRU 아키텍처: Hidden Size 128, Layer 2층, Dropout 0.3 적용
-        self.gru = nn.GRU(
-            input_size,
-            hidden_size=128,
-            num_layers=2,
-            batch_first=True,
-            dropout=0.3
+        # LSTM 대신 GRU 사용 (구조 개선)
+        self.gru = nn.GRU(input_size, hidden_size, num_layers, batch_first=True, dropout=dropout)
+        # 분류기 성능 강화를 위한 FC 레이어 확장
+        self.fc = nn.Sequential(
+            nn.Linear(hidden_size, 32),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(32, 1),
+            nn.Sigmoid()
         )
-        self.fc = nn.Linear(128, 1) # 최종 출력 차원
-        self.sigmoid = nn.Sigmoid() # 0~1 사이 확률값 출력
-
+        
     def forward(self, x):
+        # x: (batch, seq_len, features)
         out, _ = self.gru(x)
-        # 시퀀스의 마지막 타임스텝의 출력값만 사용
-        last_out = out[:, -1, :]
-        return self.sigmoid(self.fc(last_out))
+        # 마지막 시점(=가장 최근 데이터)의 출력만 사용
+        out = out[:, -1, :] 
+        out = self.fc(out)
+        return out
 ```
 
 ---
